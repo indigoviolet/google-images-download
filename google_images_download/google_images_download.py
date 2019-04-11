@@ -701,7 +701,7 @@ class googleimagesdownload:
     # Getting all links with the help of '_images_get_next_image'
     def _get_all_items(self,page,main_directory,dir_name,limit,arguments):
         items = []
-        abs_path = []
+        abs_paths = []
         errorCount = 0
         i = 0
         count = 1
@@ -733,7 +733,8 @@ class googleimagesdownload:
                     count += 1
                     object['image_filename'] = return_image_name
                     items.append(object)  # Append all the links in the list named 'Links'
-                    abs_path.append(absolute_path)
+                    if absolute_path is not None:
+                        abs_paths.append(absolute_path)
                 else:
                     errorCount += 1
 
@@ -747,7 +748,7 @@ class googleimagesdownload:
             self.say("\n\nUnfortunately all " + str(
                 limit) + " could not be downloaded because some images were not downloadable. " + str(
                 count-1) + " is all we got for this search filter!")
-        return items,errorCount,abs_path
+        return items,errorCount,abs_paths
 
 
     def parse_and_validate_arguments(self, arguments):
@@ -838,6 +839,7 @@ class googleimagesdownload:
             ######Initialization Complete
 
         paths = {}
+        all_items = {}
         for pky in arguments['prefix_keywords']:
             for sky in arguments['suffix_keywords']:     # 1.for every suffix keywords
                 i = 0
@@ -870,7 +872,8 @@ class googleimagesdownload:
                     else:
                         self.say("Starting Download...")
                     items,errorCount,abs_path = self._get_all_items(raw_html,arguments['main_directory'],dir_name,arguments['limit'],arguments)    #get all image items and download images
-                    paths[pky + arguments['search_keyword'][i] + sky] = abs_path
+                    paths[search_term] = abs_path
+                    all_items[search_term] = items
 
                     #dumps into a json file
                     if arguments['extract_metadata']:
@@ -895,13 +898,14 @@ class googleimagesdownload:
                             else:
                                 new_raw_html = self.download_extended_page(value,arguments['chromedriver'])
                             self.create_directories(arguments['main_directory'], final_search_term,arguments['thumbnail'])
-                            self._get_all_items(new_raw_html, arguments['main_directory'], search_term + " - " + key, limit,arguments)
+                            items,_,_ = self._get_all_items(new_raw_html, arguments['main_directory'], search_term + " - " + key, limit,arguments)
+                            all_items[search_term] += items
 
                     i += 1
                     self.say("\nErrors: " + str(errorCount) + "\n")
         if arguments['print_paths']:
             self.say(paths)
-        return paths
+        return {'paths': paths, 'items': all_items}
 
 #------------- Main Program -------------#
 def main():
