@@ -38,7 +38,7 @@ import socket
 args_list = ["keywords", "keywords_from_file", "prefix_keywords", "suffix_keywords",
              "limit", "format", "color", "color_type", "usage_rights", "size",
              "exact_size", "aspect_ratio", "type", "time", "time_range", "delay", "url", "single_image",
-             "output_directory", "image_directory", "no_directory", "proxy", "similar_images", "specific_site",
+             "output_directory", "image_directory", "no_directory", "proxy", "similar_images", "images_related_to", "specific_site",
              "print_urls", "print_size", "print_paths", "metadata", "extract_metadata", "socket_timeout",
              "thumbnail", "language", "prefix", "chromedriver", "related_images", "safe_search", "no_numbering",
              "offset", "no_download"]
@@ -159,8 +159,7 @@ class googleimagesdownload:
                 return "Page Not found"
 
 
-    # Download Page for more than 100 images
-    def download_extended_page(self,url,chromedriver):
+    def _chromedriver_get(self, url, chromedriver):
         from selenium import webdriver
         from selenium.webdriver.common.keys import Keys
         if sys.version_info[0] < 3:
@@ -182,6 +181,11 @@ class googleimagesdownload:
         # Open the link
         browser.get(url)
         time.sleep(1)
+        return browser
+
+    # Download Page for more than 100 images
+    def download_extended_page(self,url,chromedriver):
+        browser = self._chromedriver_get(url, chromedriver)
         self.say("Getting you a lot of images. This may take a few moments...")
 
         element = browser.find_element_by_tag_name("body")
@@ -310,6 +314,46 @@ class googleimagesdownload:
         self.say("completed ====> " + image_name)
         return
 
+    def _chromedriver_read_url(self, url, chromedriver):
+        # Some pages won't return the right content unless read
+        # through chromedriver. For example, they seem to return
+        # href="#" instead of the actual URLs
+        browser = self._chromedriver_get(url, chromedriver)
+        source = browser.page_source
+        browser.close()
+        return source
+
+    def _read_url(self, url):
+        headers = {}
+        headers['User-Agent'] = "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36"
+
+        req1 = urllib.request.Request(url, headers=headers)
+        resp1 = urllib.request.urlopen(req1)
+        content = str(resp1.read())
+        return content
+
+    def images_related_to(self,images_related_to, chromedriver):
+        try:
+            search_url = 'https://www.google.com/search?q=' + quote(images_related_to) + '&tbm=isch'
+            content = self._chromedriver_read_url(search_url, chromedriver)
+
+            # Find the "Related Images" popup link
+            pos1 = content.find('/imgres')
+            pos2 = content.find('"', pos1)
+            related_images_popup_url = content[pos1:pos2].replace(';', '&')
+            content = self._chromedriver_read_url('https://www.google.com' + related_images_popup_url, chromedriver)
+
+            # Read off rimg:<> tag
+            pos1 = content.find('rimg:')
+            pos2 = re.compile('[^A-Za-z0-9_:-]').search(content, pos1).start()
+            rimg = content[pos1:pos2]
+
+            return rimg
+        except Exception as e:
+            self.say(e)
+            raise
+            return "Could not connect to Google Images endpoint"
+
     def similar_images(self,similar_images):
         version = (3, 0)
         cur_version = sys.version_info
@@ -409,16 +453,21 @@ class googleimagesdownload:
 
 
     #building main search URL
-    def build_search_url(self,search_term,params,url,similar_images,specific_site,safe_search):
+    def build_search_url(self, search_term, params, url, similar_images, images_related_to, specific_site, safe_search, arguments):
         #check safe_search
         safe_search_string = "&safe=active"
         # check the args and choose the URL
         if url:
             url = url
         elif similar_images:
-            self.say(similar_images)
             keywordem = self.similar_images(similar_images)
             url = 'https://www.google.com/search?q=' + keywordem + '&espv=2&biw=1366&bih=667&site=webhp&source=lnms&tbm=isch&sa=X&ei=XosDVaCXD8TasATItgE&ved=0CAcQ_AUoAg'
+        elif images_related_to:
+            rimg = self.images_related_to(images_related_to, arguments['chromedriver'])
+            url = 'https://www.google.com/search?q={}&tbs={}&espv=2&biw=1366&bih=667&site=webhp&source=lnms&tbm=isch&sa=X&ei=XosDVaCXD8TasATItgE&ved=0CAcQ_AUoAg'.format(
+                quote(search_term),
+                rimg
+            )
         elif specific_site:
             url = 'https://www.google.com/search?q=' + quote(
                 search_term) + '&as_sitesearch=' + specific_site + '&espv=2&biw=1366&bih=667&site=webhp&source=lnms&tbm=isch' + params + '&sa=X&ei=XosDVaCXD8TasATItgE&ved=0CAcQ_AUoAg'
@@ -430,7 +479,6 @@ class googleimagesdownload:
         if safe_search:
             url = url + safe_search_string
 
-        # self.say(url)
         return url
 
 
@@ -802,9 +850,14 @@ class googleimagesdownload:
             parsed['current_time'] = str(datetime.datetime.now()).split('.')[0]
             parsed['search_keyword'] = [parsed['current_time'].replace(":", "_")]
 
+
         # If single_image or url argument not present then keywords is mandatory argument
-        if arguments['single_image'] is None and arguments['url'] is None and arguments['similar_images'] is None and \
-                        arguments['keywords'] is None and arguments['keywords_from_file'] is None:
+        if (arguments['single_image'] is None and
+            arguments['url'] is None and
+            arguments['similar_images'] is None and
+            arguments['images_related_to'] is None and
+            arguments['keywords'] is None and
+            arguments['keywords_from_file'] is None):
             self.say('-------------------------------\n'
                   'Uh oh! Keywords is a required argument \n\n'
                   'Please refer to the documentation on guide to writing queries \n'
@@ -860,7 +913,16 @@ class googleimagesdownload:
 
                     params = self.build_url_parameters(arguments)     #building URL with params
 
-                    url = self.build_search_url(search_term,params,arguments['url'],arguments['similar_images'],arguments['specific_site'],arguments['safe_search'])      #building main search url
+                    url = self.build_search_url(
+                        search_term,
+                        params,
+                        arguments['url'],
+                        arguments['similar_images'],
+                        arguments['images_related_to'],
+                        arguments['specific_site'],
+                        arguments['safe_search'],
+                        arguments
+                    )      #building main search url
 
                     if arguments['limit'] < 101:
                         raw_html = self.download_page(url)  # download page
