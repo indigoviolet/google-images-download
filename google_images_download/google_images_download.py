@@ -25,6 +25,9 @@ else:  # If the Current Version of Python is 2.x
     import httplib
     from httplib import IncompleteRead
     httplib._MAXHEADERS = 1000
+    reload(sys)
+    sys.setdefaultencoding('utf8')
+
 import time  # Importing the time library to check the time of code execution
 import os
 import argparse
@@ -34,6 +37,12 @@ import json
 import re
 import codecs
 import socket
+
+try:
+    from selenium import webdriver
+    from selenium.webdriver.common.keys import Keys
+except ModuleNotFoundError:
+    pass
 
 args_list = ["keywords", "keywords_from_file", "prefix_keywords", "suffix_keywords",
              "limit", "format", "color", "color_type", "usage_rights", "size",
@@ -160,15 +169,10 @@ class googleimagesdownload:
 
 
     def _chromedriver_get(self, url, chromedriver):
-        from selenium import webdriver
-        from selenium.webdriver.common.keys import Keys
-        if sys.version_info[0] < 3:
-            reload(sys)
-            sys.setdefaultencoding('utf8')
         options = webdriver.ChromeOptions()
         options.add_argument('--no-sandbox')
         options.add_argument("--headless")
-
+        # options.binary_location = '/usr/bin/chromium-browser'
         try:
             browser = webdriver.Chrome(chromedriver, chrome_options=options)
         except Exception as e:
