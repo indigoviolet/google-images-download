@@ -937,9 +937,11 @@ class googleimagesdownload:
                         self.say("Starting to Print Image URLS")
                     else:
                         self.say("Starting Download...")
-                    items,errorCount,abs_path = self._get_all_items(raw_html,arguments['main_directory'],dir_name,arguments['limit'],arguments)    #get all image items and download images
-                    paths[search_term] = abs_path
-                    all_items[search_term] = items
+                    items,errorCount,abs_paths = self._get_all_items(raw_html,arguments['main_directory'],dir_name,arguments['limit'],arguments)    #get all image items and download images
+
+                    paths[search_term] = abs_paths
+                    for p, i in zip(abs_paths, items):
+                        all_items[p] = i
 
                     #dumps into a json file
                     if arguments['extract_metadata']:
