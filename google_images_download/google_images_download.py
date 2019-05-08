@@ -966,8 +966,10 @@ class googleimagesdownload:
                             else:
                                 new_raw_html = self.download_extended_page(value,arguments['chromedriver'])
                             self.create_directories(arguments['main_directory'], final_search_term,arguments['thumbnail'])
-                            items,_,_ = self._get_all_items(new_raw_html, arguments['main_directory'], search_term + " - " + key, limit,arguments)
-                            all_items[search_term] += items
+                            items,_,abs_paths = self._get_all_items(new_raw_html, arguments['main_directory'], search_term + " - " + key, limit,arguments)
+                            paths[search_term] += abs_paths
+                            for p, i in zip(abs_paths, items):
+                                all_items[p] = i
 
                     i += 1
                     self.say("\nErrors: " + str(errorCount) + "\n")
