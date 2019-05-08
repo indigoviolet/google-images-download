@@ -940,8 +940,8 @@ class googleimagesdownload:
                     items,errorCount,abs_paths = self._get_all_items(raw_html,arguments['main_directory'],dir_name,arguments['limit'],arguments)    #get all image items and download images
 
                     paths[search_term] = abs_paths
-                    for p, i in zip(abs_paths, items):
-                        all_items[p] = i
+                    for p, it in zip(abs_paths, items):
+                        all_items[p] = it
 
                     #dumps into a json file
                     if arguments['extract_metadata']:
@@ -968,8 +968,8 @@ class googleimagesdownload:
                             self.create_directories(arguments['main_directory'], final_search_term,arguments['thumbnail'])
                             items,_,abs_paths = self._get_all_items(new_raw_html, arguments['main_directory'], search_term + " - " + key, limit,arguments)
                             paths[search_term] += abs_paths
-                            for p, i in zip(abs_paths, items):
-                                all_items[p] = i
+                            for p, it in zip(abs_paths, items):
+                                all_items[p] = it
 
                     i += 1
                     self.say("\nErrors: " + str(errorCount) + "\n")
